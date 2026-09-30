@@ -1,0 +1,9 @@
+executor: slurm
+jobs: 100
+latency-wait: 120
+rerun-incomplete: true
+printshellcmds: true
+default-resources:
+  - mem_mb=4000
+  - runtime=60
+# Deliberately no cluster partition/account: provide those in a site-local profile.

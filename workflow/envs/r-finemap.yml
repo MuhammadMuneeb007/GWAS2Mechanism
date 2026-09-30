@@ -1,0 +1,7 @@
+name: gwas2mechanism-r-finemap
+channels: [conda-forge, bioconda]
+dependencies:
+  - r-base=4.4
+  - r-susier=0.12.35
+  - r-coloc=5.2.3
+  - r-data.table=1.17

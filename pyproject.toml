@@ -1,0 +1,99 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gwas2mechanism"
+version = "0.1.0"
+description = "Phenotype-agnostic, population-aware GWAS -> fine-mapping -> molecular-mechanism framework"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Muhammad Muneeb" }]
+keywords = [
+  "GWAS", "fine-mapping", "SuSiE", "MultiSuSiE", "multi-ancestry", "GTEx",
+  "eQTL", "sQTL", "colocalisation", "SpliceAI", "Pangolin", "VEP",
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+  "polars>=1.20",
+  "pyarrow>=17",
+  "duckdb>=1.1",
+  "numpy>=2.0",
+  "scipy>=1.14",
+  "pandas>=2.2",
+  "pydantic>=2.8",
+  "typer>=0.12",
+  "rich>=13.7",
+  "pyyaml>=6.0",
+  "orjson>=3.10",
+  "httpx>=0.27",
+  "tenacity>=9.0",
+  "tqdm>=4.66",
+  "fsspec>=2024.6",
+  "psutil>=6.0",
+  "joblib>=1.4",
+  "threadpoolctl>=3.5",
+  "jinja2>=3.1",
+  "plotly>=5.24",
+]
+
+[project.optional-dependencies]
+gwaslab = ["gwaslab==4.2.3"]
+# Pinned, tested commits (no release tags exist upstream); see resources/software_manifest.tsv
+multisusie = ["MultiSuSiE @ git+https://github.com/jordanero/MultiSuSiE.git@a89e091d45297d983118438f116c3eb5bc1219ed", "numba>=0.60"]
+gwaspoker = ["gwaspoker @ git+https://github.com/MuhammadMuneeb007/GWASPokerforPRS2.git@11538899ad0d8b3962a6d172d644fae43295a34b"]
+genomics = ["pysam>=0.22", "cyvcf2>=0.31"]
+plots = ["kaleido>=0.2"]
+workflow = ["snakemake==9.27.0", "snakemake-executor-plugin-slurm==2.8.0"]
+dev = ["pytest>=8", "pytest-xdist>=3.6", "ruff>=0.6", "mypy>=1.11"]
+
+[project.scripts]
+gwas2m = "gwas2mechanism.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/MuhammadMuneeb007/GWAS2Mechanism"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gwas2mechanism"]
+
+# Ship the workflow and default configuration inside the wheel so that a
+# non-editable install can still orchestrate runs with Snakemake.
+[tool.hatch.build.targets.wheel.force-include]
+"config/default.yaml" = "gwas2mechanism/_bundled/config/default.yaml"
+"Snakefile" = "gwas2mechanism/_bundled/Snakefile"
+"workflow" = "gwas2mechanism/_bundled/workflow"
+"resources/software_manifest.tsv" = "gwas2mechanism/_bundled/resources/software_manifest.tsv"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["tests/fixtures", "legacy"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "NPY", "RUF"]
+ignore = ["E501", "B008", "RUF001", "RUF002", "RUF003", "SIM108", "UP007", "UP045"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+  "network: requires network access (deselected by default in CI with -m 'not network')",
+  "slow: slower end-to-end tests",
+]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = false

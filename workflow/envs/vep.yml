@@ -1,0 +1,6 @@
+name: gwas2mechanism-vep
+channels: [conda-forge, bioconda]
+dependencies:
+  - ensembl-vep=116.2
+  - libzlib=1.2.13
+  - perl

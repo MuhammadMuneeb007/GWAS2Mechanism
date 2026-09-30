@@ -1,0 +1,7 @@
+name: gwas2mechanism-pangolin
+channels: [conda-forge, bioconda]
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - Pangolin @ git+https://github.com/tkzeng/Pangolin.git@5cf94b8db938c658391b4305cd7ce33297d44ff7

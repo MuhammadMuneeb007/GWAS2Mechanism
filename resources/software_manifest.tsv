@@ -1,0 +1,8 @@
+software	version_or_commit	source	purpose
+GWASLab	4.2.3	https://pypi.org/project/gwaslab/4.2.3/	GWAS download, QC and harmonisation adapter
+MultiSuSiE	a89e091d45297d983118438f116c3eb5bc1219ed	https://github.com/jordanero/MultiSuSiE	cross-ancestry fine-mapping
+GWASPokerforPRS2	11538899ad0d8b3962a6d172d644fae43295a34b	https://github.com/MuhammadMuneeb007/GWASPokerforPRS2	optional fast discovery adapter
+SpliceAI	1.3.1	https://pypi.org/project/spliceai/1.3.1/	splice prediction
+Pangolin	5cf94b8db938c658391b4305cd7ce33297d44ff7	https://github.com/tkzeng/Pangolin	splice prediction; upstream has no tagged release
+Ensembl-VEP	116.2	https://github.com/Ensembl/ensembl-vep/releases/tag/release/116.2	functional annotation
+SuSiEx	v1.1.2 / c11dc6fbf27aa154c2bd92a3940d080e8665340d	https://github.com/getian107/SuSiEx/releases/tag/v1.1.2	fallback cross-ancestry fine-mapping

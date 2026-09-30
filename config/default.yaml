@@ -1,0 +1,238 @@
+# =============================================================================
+# GWAS2Mechanism default configuration
+#
+# Nothing in this file is phenotype-specific. Every value can be overridden with
+#   gwas2m run --config my.yaml   or   --set section.key=value
+# =============================================================================
+
+phenotype: null                # supplied on the command line
+mode: fast                     # fast | full
+run_root: runs                 # runs/<phenotype_slug>/<run_id>/
+
+# Where downloaded, versioned resources are cached ONCE and reused.
+# null -> $GWAS2M_CACHE or ~/.cache/gwas2mechanism
+resources_dir: null
+
+phenotype_resolution:
+  synonyms: []                 # optional user-supplied extra synonyms
+  efo_ids: []                  # optional user-pinned ontology ids (e.g. MONDO_xxx)
+  include_descendants: false   # never silently broaden to child/related terms
+  allow_fuzzy: false           # fuzzy matches are listed but not selectable by default
+  fuzzy_min_ratio: 0.92
+  ols_url: https://www.ebi.ac.uk/ols4/api
+
+discovery:
+  backend: auto                # auto | gwaspoker | gwas_catalog
+  gwas_catalog:
+    mode: rest                 # rest | bulk  (bulk = official download TSVs, cached)
+    rest_url: https://www.ebi.ac.uk/gwas/rest/api/v2
+    studies_source: https://ftp.ebi.ac.uk/pub/databases/gwas/releases/latest/gwas-catalog-download-studies-v1.0.3.1.txt
+    ancestries_source: https://ftp.ebi.ac.uk/pub/databases/gwas/releases/latest/gwas-catalog-download-ancestries-v1.0.3.1.txt
+    sumstats_base: https://ftp.ebi.ac.uk/pub/databases/gwas/summary_statistics
+    page_size: 200
+    max_studies: 200           # bounded metadata enumeration; --all-studies controls analysis breadth
+  list_files: true             # enumerate files in each study's FTP directory
+  probe_headers: true          # bounded HTTP Range header probe (<=256 KB) for top candidates
+  probe_top_n: 5               # per population
+  probe_bytes: 262144
+  timeout_s: 60
+  concurrency: 8
+  all_studies: false           # --all-studies: analyse every suitable study
+  prefer_harmonised: true
+  exclude_gxe: true
+  exclude_background_traits: true
+
+ranking:
+  # selection_score = sum(weight * component); every component is exported.
+  weights:
+    phenotype_match: 3.0
+    ancestry_suitability: 2.0
+    summary_stats_available: 3.0
+    harmonised_available: 1.5
+    grch38_available: 1.0
+    sample_size: 2.0           # log10(N) / 7, 0 if N unknown (never imputed)
+    effect_columns: 1.0        # beta/OR + SE available
+    eaf_available: 0.5
+    n_column_available: 0.25
+    metadata_completeness: 0.5
+  penalties:
+    stratified_subset: 1.0     # e.g. sex-/age-stratified analyses
+    multi_trait_mapping: 0.5   # study mapped to several ontology terms
+  min_phenotype_match: 0.8
+
+populations:
+  mode: auto                   # auto | explicit list via --populations
+  allowed: [EUR, AFR, EAS, SAS, AMR]
+  # GWAS Catalog broad ancestral category -> 1000 Genomes super-population.
+  # 'approximate' mappings are retained but flagged in every output.
+  mapping:
+    European: {population: EUR, approximate: false}
+    East Asian: {population: EAS, approximate: false}
+    South East Asian: {population: EAS, approximate: true}
+    South Asian: {population: SAS, approximate: false}
+    African unspecified: {population: AFR, approximate: false}
+    Sub-Saharan African: {population: AFR, approximate: false}
+    African American or Afro-Caribbean: {population: AFR, approximate: true}
+    Hispanic or Latin American: {population: AMR, approximate: true}
+    Native American: {population: AMR, approximate: true}
+
+combined:
+  published_combined: true     # analyse published multi-ancestry GWAS as COMBINED_PUBLISHED
+  fixed_effect_meta: true      # COMBINED_META from ancestry-stratified datasets
+  multiancestry_finemap: true
+  min_populations_for_meta: 2
+  # A published combined GWAS has no matching single-ancestry LD panel.
+  # Fine-mapping it with one population's LD would be LD-mismatched, so it
+  # is OFF by default and its loci only contribute to the combined locus union.
+  finemap_published_with_population: null
+
+genome:
+  build: GRCh38
+  chromosomes: ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22"]
+
+harmonization:
+  engine: auto                 # auto | gwaslab | builtin
+  require_grch38: true
+  liftover: gwaslab            # only used when a non-GRCh38 file is selected
+  min_info: null
+  drop_palindromic_ambiguous_maf: 0.4
+  validate_build_with_fasta: true
+  build_validation_sample: 20000
+  build_validation_min_concordance: 0.9
+
+gwas:
+  p_threshold: 5.0e-8
+
+clumping:
+  engine: plink2               # plink2 | builtin (numpy greedy; small panels/tests)
+  p1: 5.0e-8
+  p2: 1.0
+  r2: 0.1
+  kb: 1000
+
+loci:
+  window_bp: 1000000           # half-window around each lead; overlapping windows merge
+  combined_merge_bp: 0         # extra gap allowed when unioning loci across populations
+
+reference:
+  panel: 1000G_GRCh38_20190312
+  base_url: https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000_genomes_project/release/20190312_biallelic_SNV_and_INDEL
+  panel_url: https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/integrated_call_samples_v3.20130502.ALL.panel
+  vcf_template: ALL.chr{chrom}.shapeit2_integrated_snvindels_v2a_27022019.GRCh38.phased.vcf.gz
+  ld_engine: plink2            # plink2 | dosage (numpy, small synthetic panels)
+  maf: 0.01
+  geno: 0.05
+  keep_population_vcf: false
+
+finemapping:
+  method: susie_rss
+  engine: susier               # susier (R reference implementation) | numpy (built-in port) | auto
+  credible_set_coverage: 0.95
+  min_purity: 0.5
+  min_variants: 10
+  max_ld_variants: 15000
+  ld_ridge: 1.0e-4
+  default_L: 10
+  max_L: 20
+  estimate_s_max_variants: 5000
+  refine: false
+  max_iter: 100
+  tol: 1.0e-3
+  cross_ancestry_method: multisusie   # multisusie | susiex | none
+  multisusie_rho: 0.75
+  n_jobs: auto
+
+meta:
+  engine: builtin              # builtin | metal
+  mrmega: false                # optional meta-regression when >= 3 populations
+
+annotation:
+  vep: true
+  min_pip: 0.01
+  species: homo_sapiens
+  vep_cache_version: null      # null -> match installed VEP major version
+  vep_extra_args: []
+
+qtl:
+  source: gtex
+  release: latest              # latest | v11 | v10 ...
+  tissues: all                 # ALWAYS all by default. A list restricts; never a phenotype default.
+  types: [eqtl, sqtl]          # add apaqtl if desired
+  bucket_listing_url: https://storage.googleapis.com/storage/v1/b/adult-gtex/o
+  bucket_download_url: https://storage.googleapis.com/adult-gtex
+  local_archive_dir: null      # pre-extracted parquet directory (tests / air-gapped HPC)
+
+splicing:
+  spliceai: true
+  pangolin: true
+  spliceai_distance: 50
+  spliceai_mask: 0
+  spliceai_annotation: grch38
+  pangolin_distance: 500
+  pangolin_mask: false
+  thresholds:
+    high_recall: 0.2
+    recommended: 0.5
+    high_precision: 0.8
+  pangolin_ensembl_release: 116
+
+colocalization:
+  pip_screen: true
+  screen_classes: {strong: 0.01, moderate: 0.001, weak: 0.0001}
+  formal:
+    enabled: false
+    top_pairs: 100
+    max_download_mb: 500       # never pull terabyte-scale dense GTEx data implicitly
+
+evidence:
+  priority_score:
+    enabled: true
+    # Transparent, configurable linear score. Each component is exported.
+    weights:
+      finemap_pip: 3.0
+      cross_ancestry_pip: 2.0
+      lclpp: 2.0
+      coding_or_splice_consequence: 1.0
+      spliceai: 1.0
+      pangolin: 0.5
+      n_supporting_populations: 0.5
+  support_pip: 0.1             # PIP needed for a population to "support" a variant
+
+optional_modules:
+  lncrna: false
+
+lncrna:
+  gencode_release: 50
+  pip_thresholds: [0.01, 0.1, 0.5]
+
+performance:
+  parquet_compression: zstd
+  parquet_compression_level: 3
+  threads: auto                # honours SLURM_CPUS_PER_TASK
+  memory_safe: true
+  blas_threads_per_job: 1
+
+report:
+  html: true
+  markdown: true
+  tsv: true
+  top_n: 50
+
+# External tools. Each entry is a command (string or list). 'auto' resolves
+# PATH first, then the dedicated conda env created by `gwas2m setup`.
+tools:
+  plink2: auto
+  bcftools: auto
+  samtools: auto
+  tabix: auto
+  bgzip: auto
+  aria2c: auto
+  rscript: auto
+  vep: auto
+  vep_install: auto
+  spliceai: auto
+  pangolin: auto
+  susiex: auto
+  metal: auto
+  mrmega: auto
+  snakemake: auto

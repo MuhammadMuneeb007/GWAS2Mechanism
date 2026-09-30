@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use GWAS2Mechanism, please cite this software and the upstream methods/resources used by your run."
+title: "GWAS2Mechanism"
+type: software
+version: 0.1.0
+date-released: 2026-10-01
+authors:
+  - family-names: Muneeb
+    given-names: Muhammad
+repository-code: "https://github.com/MuhammadMuneeb007/GWAS2Mechanism"
+license: MIT
+keywords:
+  - GWAS
+  - fine-mapping
+  - population genetics
+  - molecular QTL

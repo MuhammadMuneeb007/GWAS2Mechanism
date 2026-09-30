@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.venv/
+
+# IDE / OS / secrets
+.idea/
+.vscode/
+.DS_Store
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*token*
+*credential*
+
+# Generated runs and cached scientific resources
+runs/
+resources/reference/
+resources/gtex/
+resources/vep/
+resources/genome/
+resources/models/
+*.vcf
+*.vcf.gz
+*.bcf
+*.pgen
+*.pvar
+*.psam
+*.bgen
+*.bed
+*.bim
+*.fam
+*.fa
+*.fasta
+*.fa.gz
+*.fasta.gz
+*.gtf.gz
+*.tar
+*.tar.gz
+*.parquet
+*.log
+*.part
+
+# Keep tiny committed fixtures despite broad scientific-data ignores.
+!tests/fixtures/**
+!resources/software_manifest.tsv

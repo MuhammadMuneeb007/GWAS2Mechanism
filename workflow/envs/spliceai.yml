@@ -1,0 +1,7 @@
+name: gwas2mechanism-spliceai
+channels: [conda-forge, bioconda]
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - spliceai==1.3.1
