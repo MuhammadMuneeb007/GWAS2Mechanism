@@ -31,22 +31,30 @@ flowchart TD
 
 ## Installation
 
-Mamba is the supported solver:
+Mamba is the supported solver. Installation is self-contained under the
+repository: environments and the package cache are stored in `.gwas2m/`,
+scientific resources in `.gwas2m/resources/`, and results in `runs/`.
 
 ```bash
-mamba env create -f environment.yml
-mamba run -n gwas2mechanism gwas2m doctor
+git clone https://github.com/MuhammadMuneeb007/GWAS2Mechanism.git
+cd GWAS2Mechanism
+bash scripts/install.sh
+source scripts/activate.sh
+gwas2m doctor
 ```
 
 For isolated VEP/SpliceAI/Pangolin/R environments and all scientific resources:
 
 ```bash
 bash scripts/install.sh --full
-# equivalent resource step:
-mamba run -n gwas2mechanism gwas2m setup --full
+# The same checkout can be activated again in later shells:
+source scripts/activate.sh
 ```
 
-Resources are cached under `$GWAS2M_CACHE` or `~/.cache/gwas2mechanism`, validated, recorded in `manifest.tsv`, and reused. Preview the large download plan with `gwas2m setup --all --dry-run`.
+Resources are cached under `./.gwas2m/resources` by default, validated,
+recorded in `manifest.tsv`, and reused. `GWAS2M_CACHE` can explicitly override
+that location. Preview the large download plan with
+`gwas2m setup --all --dry-run`.
 
 ## Quick start
 

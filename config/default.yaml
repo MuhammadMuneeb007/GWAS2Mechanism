@@ -10,7 +10,7 @@ mode: fast                     # fast | full
 run_root: runs                 # runs/<phenotype_slug>/<run_id>/
 
 # Where downloaded, versioned resources are cached ONCE and reused.
-# null -> $GWAS2M_CACHE or ~/.cache/gwas2mechanism
+# null -> $GWAS2M_CACHE or ./.gwas2m/resources
 resources_dir: null
 
 phenotype_resolution:

@@ -6,4 +6,15 @@ if ! command -v mamba >/dev/null 2>&1; then
   echo "mamba is required." >&2
   exit 2
 fi
-mamba run -n gwas2mechanism gwas2m setup --all --populations EUR --populations AFR --populations EAS --populations SAS --populations AMR "$@"
+LOCAL_ROOT="$ROOT_DIR/.gwas2m"
+CORE_ENV="$LOCAL_ROOT/envs/gwas2mechanism"
+export CONDA_PKGS_DIRS="$LOCAL_ROOT/pkgs"
+export GWAS2M_ENV_ROOT="$LOCAL_ROOT/envs"
+export GWAS2M_CACHE="$LOCAL_ROOT/resources"
+
+if [[ ! -d "$CORE_ENV/conda-meta" ]]; then
+  echo "Local environment not found. Run: bash scripts/install.sh --full" >&2
+  exit 2
+fi
+
+mamba run --prefix "$CORE_ENV" gwas2m setup --all --populations EUR --populations AFR --populations EAS --populations SAS --populations AMR "$@"

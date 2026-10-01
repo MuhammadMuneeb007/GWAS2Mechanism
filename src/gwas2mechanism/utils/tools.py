@@ -14,9 +14,11 @@ from __future__ import annotations
 import functools
 import json
 import logging
+import os
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -59,18 +61,29 @@ def _conda_frontend() -> str | None:
 
 
 @functools.lru_cache(maxsize=1)
-def _conda_env_names() -> frozenset[str]:
+def _conda_envs() -> dict[str, str]:
+    """Return environment basenames mapped to their absolute prefixes."""
+    result: dict[str, str] = {}
+    local_root = Path(os.environ.get("GWAS2M_ENV_ROOT", Path.cwd() / ".gwas2m" / "envs"))
+    for _exe, env_name in TOOL_SPECS.values():
+        if env_name:
+            candidate = (local_root / env_name).resolve()
+            if (candidate / "conda-meta").is_dir():
+                result[env_name] = str(candidate)
     frontend = _conda_frontend()
     if frontend is None:
-        return frozenset()
+        return result
     try:
         out = subprocess.run(
             [frontend, "env", "list", "--json"], capture_output=True, text=True, timeout=60
         )
         envs = json.loads(out.stdout or "{}").get("envs", [])
     except (OSError, ValueError, subprocess.SubprocessError):
-        return frozenset()
-    return frozenset(e.replace("\\", "/").rstrip("/").split("/")[-1] for e in envs)
+        return result
+    for env in envs:
+        prefix = str(env).replace("\\", "/").rstrip("/")
+        result.setdefault(prefix.split("/")[-1], prefix)
+    return result
 
 
 class ToolResolver:
@@ -88,10 +101,11 @@ class ToolResolver:
         found = shutil.which(exe)
         if found:
             return [found]
-        if env_name and env_name in _conda_env_names():
+        envs = _conda_envs()
+        if env_name and env_name in envs:
             frontend = _conda_frontend()
             if frontend:
-                return [frontend, "run", "-n", env_name, exe]
+                return [frontend, "run", "--prefix", envs[env_name], exe]
         return None
 
     def available(self, name: str) -> bool:

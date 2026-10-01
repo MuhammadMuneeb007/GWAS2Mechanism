@@ -25,3 +25,10 @@ def test_cli_help_and_two_phenotypes_are_accepted(tmp_path: Path) -> None:
     for phenotype in ("migraine", "asthma"):
         result = runner.invoke(app, ["run", "--phenotype", phenotype, "--synthetic", "--set", f"run_root={tmp_path / phenotype}"])
         assert result.exit_code == 0, result.output
+
+
+def test_default_resources_stay_in_working_directory(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("GWAS2M_CACHE", raising=False)
+    cfg = load_config()
+    assert cfg.resources_path == tmp_path / ".gwas2m" / "resources"

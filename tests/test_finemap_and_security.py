@@ -9,6 +9,7 @@ import pytest
 
 from gwas2mechanism.finemap.multisusie import MultiSuSiEInputs
 from gwas2mechanism.finemap.susie import run_numpy_smoke_susie
+from gwas2mechanism.utils import tools as tools_module
 
 
 def test_population_specific_finemap_smoke() -> None:
@@ -44,3 +45,16 @@ def test_no_hardcoded_secrets() -> None:
     pattern = re.compile(r"(?:sk-|ghp_|gho_)[A-Za-z0-9_]{12,}")
     offenders = [path for path in root.rglob("*") if path.is_file() and ".git" not in path.parts and pattern.search(path.read_text(encoding="utf-8", errors="ignore"))]
     assert not offenders
+
+
+def test_local_prefix_tool_resolution(tmp_path: Path, monkeypatch) -> None:
+    env_root = tmp_path / ".gwas2m" / "envs"
+    vep_env = env_root / "gwas2mechanism-vep"
+    (vep_env / "conda-meta").mkdir(parents=True)
+    monkeypatch.setenv("GWAS2M_ENV_ROOT", str(env_root))
+    monkeypatch.setattr(tools_module, "_conda_frontend", lambda: "mamba")
+    monkeypatch.setattr(tools_module.shutil, "which", lambda _name: None)
+    tools_module._conda_envs.cache_clear()
+    command = tools_module.ToolResolver({"vep": "auto"}).command("vep")
+    assert command == ["mamba", "run", "--prefix", str(vep_env.resolve()), "vep"]
+    tools_module._conda_envs.cache_clear()

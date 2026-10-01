@@ -276,7 +276,10 @@ class Config(_Strict):
         env = os.environ.get("GWAS2M_CACHE")
         if env:
             return Path(env).expanduser()
-        return Path.home() / ".cache" / "gwas2mechanism"
+        # Keep the default self-contained and writable from an HPC checkout.
+        # Users can still opt into a shared cache with resources_dir or
+        # GWAS2M_CACHE.
+        return Path.cwd() / ".gwas2m" / "resources"
 
     def dump(self) -> dict[str, Any]:
         return self.model_dump(mode="json")
