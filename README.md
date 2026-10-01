@@ -35,6 +35,21 @@ Mamba is the supported solver. Installation is self-contained under the
 repository: environments and the package cache are stored in `.gwas2m/`,
 scientific resources in `.gwas2m/resources/`, and results in `runs/`.
 
+For a complete one-command installation—including every isolated environment,
+all scientific resources, validation tests, and a synthetic example—run:
+
+```bash
+git clone https://github.com/MuhammadMuneeb007/GWAS2Mechanism.git
+cd GWAS2Mechanism
+bash Install.sh
+```
+
+The resource phase is restartable but is not a quick package install: the
+population reference panels, GTEx data, and VEP cache can require hours and
+substantial disk space. Rerunning `bash Install.sh` reuses completed work.
+
+For a quick core-only installation:
+
 ```bash
 git clone https://github.com/MuhammadMuneeb007/GWAS2Mechanism.git
 cd GWAS2Mechanism
@@ -43,10 +58,11 @@ source scripts/activate.sh
 gwas2m doctor
 ```
 
-For isolated VEP/SpliceAI/Pangolin/R environments and all scientific resources:
+The lower-level equivalent for isolated VEP/SpliceAI/Pangolin/R environments
+and all scientific resources is:
 
 ```bash
-bash scripts/install.sh --full
+bash scripts/install.sh --full --example
 # The same checkout can be activated again in later shells:
 source scripts/activate.sh
 ```

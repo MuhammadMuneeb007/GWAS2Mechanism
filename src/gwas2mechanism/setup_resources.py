@@ -27,6 +27,10 @@ FASTA_URL = "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_5
 GTF_URL = "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.annotation.gtf.gz"
 
 
+def _progress(message: str) -> None:
+    print(f"[gwas2m setup] {message}", file=sys.stderr, flush=True)
+
+
 def _gunzip_cached(source: Path, destination: Path) -> Path:
     """Atomically unpack an ordinary gzip file, reusing a completed output."""
     if (
@@ -112,11 +116,13 @@ def setup_resources(
     if dry_run:
         return plan
     root.mkdir(parents=True, exist_ok=True)
+    _progress(f"resource root: {root}")
     manifest = ResourceManifest(root / "manifest.tsv")
     tools = ToolResolver(config.tools)
     threads = resolve_threads(config.performance.threads)
     # FASTA/GTF are shared by VEP, build validation and both splice predictors.
     if reference or vep or splice:
+        _progress("checking GENCODE GRCh38 FASTA and GTF downloads")
         genome = root / "genome" / "GRCh38"
         fasta_gz = genome / "GRCh38.primary_assembly.fa.gz"
         fasta = genome / "GRCh38.primary_assembly.fa"
@@ -124,26 +130,33 @@ def setup_resources(
         gtf = genome / "gencode.v50.annotation.gtf"
         fasta_result = Downloader(use_aria2=tools.command("aria2c")).fetch(FASTA_URL, fasta_gz)
         gtf_result = Downloader(use_aria2=tools.command("aria2c")).fetch(GTF_URL, gtf_gz)
+        _progress("unpacking GENCODE FASTA (cached output is reused)")
         _gunzip_cached(fasta_gz, fasta)
+        _progress("unpacking GENCODE GTF (cached output is reused)")
         _gunzip_cached(gtf_gz, gtf)
         manifest.record("genome/GRCh38/fasta", version="GENCODE-50", source=FASTA_URL, local_path=fasta, size=fasta.stat().st_size, checksum=fasta_result.md5)
         manifest.record("genome/GRCh38/gtf", version="GENCODE-50", source=GTF_URL, local_path=gtf, size=gtf.stat().st_size, checksum=gtf_result.md5)
         if tools.available("samtools"):
             fai = fasta.with_name(fasta.name + ".fai")
             if not fai.exists() or fai.stat().st_mtime < fasta.stat().st_mtime:
+                _progress("indexing the uncompressed GRCh38 FASTA with samtools")
                 run([*tools.require("samtools"), "faidx", str(fasta)], log_file=genome / "samtools-faidx.log")
     if reference:
+        _progress("downloading 1000 Genomes chromosome VCFs and indexes")
         panel = ReferencePanel(config.reference, root, tools)
         panel.download(config.genome.chromosomes, manifest, workers=min(4, threads))
         for population in populations:
+            _progress(f"preparing the {population} PLINK2 reference panel")
             panel.prepare(population, config.genome.chromosomes, threads, manifest)
     if gtex:
+        _progress("discovering the latest Adult GTEx release")
         release = discover_release(config.qtl.bucket_listing_url) if config.qtl.release == "latest" else config.qtl.release.lower()
         objects = _gtex_objects(config, release)
         if not objects:
             raise RuntimeError(f"No compact SuSiE eQTL/sQTL archives found for Adult GTEx {release}")
         destination = root / "gtex" / release
         total = 0
+        _progress(f"downloading {len(objects)} compact Adult GTEx {release} objects")
         for item in objects:
             name = str(item["name"])
             path = destination / Path(name).name
@@ -160,11 +173,13 @@ def setup_resources(
         plan["gtex_release"] = release
         plan["gtex_objects"] = len(objects)
     if vep:
+        _progress("installing the Ensembl VEP cache")
         cache_dir = root / "vep"
         cache_dir.mkdir(parents=True, exist_ok=True)
         run([*tools.require("vep_install"), "-a", "cf", "-s", config.annotation.species, "-y", "GRCh38", "-c", str(cache_dir), "--NO_UPDATE"], log_file=cache_dir / "install.log")
         manifest.record("vep/cache", version=tools.version("vep"), source="Ensembl VEP installer", local_path=cache_dir)
     if splice:
+        _progress("validating SpliceAI and Pangolin environments")
         for name in ("spliceai", "pangolin"):
             if not tools.available(name):
                 raise FileNotFoundError(f"{name} environment is missing; run scripts/install.sh --full")
@@ -172,6 +187,7 @@ def setup_resources(
         pangolin_dir = root / "splicing" / "pangolin"
         annotation_db = pangolin_dir / "gencode.annotation.db"
         if not annotation_db.exists():
+            _progress("building the Pangolin GENCODE annotation database")
             pangolin_dir.mkdir(parents=True, exist_ok=True)
             pangolin_command = tools.require("pangolin")
             python_command = (
@@ -189,4 +205,5 @@ def setup_resources(
                 log_file=pangolin_dir / "create-db.log",
             )
         manifest.record("splicing/pangolin/annotation_db", version="GENCODE-50", source=GTF_URL, local_path=annotation_db, size=annotation_db.stat().st_size)
+    _progress("requested resource stage completed")
     return plan

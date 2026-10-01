@@ -5,12 +5,13 @@ avoids `$HOME/.cache`, named Conda environments, and shared `/data` paths.
 
 ```bash
 git pull --ff-only origin main
-bash scripts/install.sh --full
+bash Install.sh
 source scripts/activate.sh
-pytest -q
-gwas2m run --phenotype "HPC smoke test" --populations auto --tissues all \
-  --mode fast --threads "${SLURM_CPUS_PER_TASK:-4}" --synthetic
 ```
+
+`Install.sh` installs every environment, downloads resources in four labelled
+stages, runs the test suite, and creates a synthetic report. The equivalent
+lower-level command is `bash scripts/install.sh --full --example`.
 
 The complete local layout is:
 
@@ -36,7 +37,7 @@ The installation and downloads are restartable. If a network transfer or
 login session stops, rerun:
 
 ```bash
-bash scripts/install.sh --full
+bash Install.sh
 ```
 
 For later shells, reactivate the project-local paths with:
