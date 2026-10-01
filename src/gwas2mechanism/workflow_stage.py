@@ -269,7 +269,7 @@ class StageRunner:
         variants = pl.read_parquet(self.layout.annotation / "variant_summary.parquet")
         if not {"CHR", "POS", "REF", "ALT"} <= set(variants.columns):
             variants = split_variant_id(variants)
-        fasta = self.config.resources_path / "genome" / "GRCh38" / "GRCh38.primary_assembly.fa.gz"
+        fasta = self.config.resources_path / "genome" / "GRCh38" / "GRCh38.primary_assembly.fa"
         spliceai_summary = pl.DataFrame(schema={"VARIANT_ID": pl.String, "SPLICEAI_MAX": pl.Float64})
         pangolin_summary = pl.DataFrame(schema={"VARIANT_ID": pl.String, "PANGOLIN_SCORE": pl.Float64})
         if self.config.splicing.spliceai:

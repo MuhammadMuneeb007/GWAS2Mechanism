@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import datetime as dt
+import gzip
+import os
+import shutil
 import sys
 import tarfile
 from pathlib import Path
@@ -22,6 +25,28 @@ from gwas2mechanism.utils.tools import ToolResolver
 
 FASTA_URL = "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/GRCh38.primary_assembly.genome.fa.gz"
 GTF_URL = "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.annotation.gtf.gz"
+
+
+def _gunzip_cached(source: Path, destination: Path) -> Path:
+    """Atomically unpack an ordinary gzip file, reusing a completed output."""
+    if (
+        destination.is_file()
+        and destination.stat().st_size > 0
+        and destination.stat().st_mtime >= source.stat().st_mtime
+    ):
+        return destination
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(destination.name + ".part")
+    try:
+        with gzip.open(source, "rb") as compressed, temporary.open("wb") as uncompressed:
+            shutil.copyfileobj(compressed, uncompressed, length=8 * 1024 * 1024)
+        if temporary.stat().st_size == 0:
+            raise OSError(f"Decompression produced an empty file: {source}")
+        os.replace(temporary, destination)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+    return destination
 
 
 def _safe_extract(archive: Path, destination: Path) -> None:
@@ -94,13 +119,19 @@ def setup_resources(
     if reference or vep or splice:
         genome = root / "genome" / "GRCh38"
         fasta_gz = genome / "GRCh38.primary_assembly.fa.gz"
-        gtf = genome / "gencode.v50.annotation.gtf.gz"
+        fasta = genome / "GRCh38.primary_assembly.fa"
+        gtf_gz = genome / "gencode.v50.annotation.gtf.gz"
+        gtf = genome / "gencode.v50.annotation.gtf"
         fasta_result = Downloader(use_aria2=tools.command("aria2c")).fetch(FASTA_URL, fasta_gz)
-        gtf_result = Downloader(use_aria2=tools.command("aria2c")).fetch(GTF_URL, gtf)
-        manifest.record("genome/GRCh38/fasta", version="GENCODE-50", source=FASTA_URL, local_path=fasta_gz, size=fasta_result.size, checksum=fasta_result.md5)
-        manifest.record("genome/GRCh38/gtf", version="GENCODE-50", source=GTF_URL, local_path=gtf, size=gtf_result.size, checksum=gtf_result.md5)
+        gtf_result = Downloader(use_aria2=tools.command("aria2c")).fetch(GTF_URL, gtf_gz)
+        _gunzip_cached(fasta_gz, fasta)
+        _gunzip_cached(gtf_gz, gtf)
+        manifest.record("genome/GRCh38/fasta", version="GENCODE-50", source=FASTA_URL, local_path=fasta, size=fasta.stat().st_size, checksum=fasta_result.md5)
+        manifest.record("genome/GRCh38/gtf", version="GENCODE-50", source=GTF_URL, local_path=gtf, size=gtf.stat().st_size, checksum=gtf_result.md5)
         if tools.available("samtools"):
-            run([*tools.require("samtools"), "faidx", str(fasta_gz)], log_file=genome / "samtools-faidx.log")
+            fai = fasta.with_name(fasta.name + ".fai")
+            if not fai.exists() or fai.stat().st_mtime < fasta.stat().st_mtime:
+                run([*tools.require("samtools"), "faidx", str(fasta)], log_file=genome / "samtools-faidx.log")
     if reference:
         panel = ReferencePanel(config.reference, root, tools)
         panel.download(config.genome.chromosomes, manifest, workers=min(4, threads))
@@ -154,7 +185,7 @@ def setup_resources(
                 "merge_strategy='merge', sort_attribute_values=True)"
             )
             run(
-                [*python_command, "-c", script, str(root / "genome" / "GRCh38" / "gencode.v50.annotation.gtf.gz"), str(annotation_db)],
+                [*python_command, "-c", script, str(root / "genome" / "GRCh38" / "gencode.v50.annotation.gtf"), str(annotation_db)],
                 log_file=pangolin_dir / "create-db.log",
             )
         manifest.record("splicing/pangolin/annotation_db", version="GENCODE-50", source=GTF_URL, local_path=annotation_db, size=annotation_db.stat().st_size)

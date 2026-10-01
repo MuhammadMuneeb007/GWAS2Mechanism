@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import math
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from gwas2mechanism.finemap.region import match_to_reference
 from gwas2mechanism.meta.fixed_effect import inverse_variance_meta
 from gwas2mechanism.qtl.gtex import parse_gtex_variant, requested_tissues
 from gwas2mechanism.reference.manager import ReferencePanel
+from gwas2mechanism.setup_resources import _gunzip_cached
 from gwas2mechanism.sumstats.harmonize import (
     AggregatedSplitError,
     derive_statistics,
@@ -122,6 +124,18 @@ def test_build_validation(tmp_path: Path) -> None:
     result = validate_build(variants, fasta, sample=100, min_concordance=0.9)
     assert result["status"] == "checked"
     assert result["ref_concordance"] == 1.0
+
+
+def test_gencode_gzip_is_unpacked_before_faidx(tmp_path: Path) -> None:
+    compressed = tmp_path / "tiny.fa.gz"
+    destination = tmp_path / "tiny.fa"
+    with gzip.open(compressed, "wb") as handle:
+        handle.write(b">chr1\nACGT\n")
+    assert _gunzip_cached(compressed, destination) == destination
+    assert destination.read_bytes() == b">chr1\nACGT\n"
+    first_mtime = destination.stat().st_mtime_ns
+    assert _gunzip_cached(compressed, destination) == destination
+    assert destination.stat().st_mtime_ns == first_mtime
 
 
 def test_reference_selection_rejects_combined(tmp_path: Path) -> None:
