@@ -1,13 +1,20 @@
 # Project-local HPC installation
 
-Run every command from the `GWAS2Mechanism` checkout. The installer intentionally
-avoids `$HOME/.cache`, named Conda environments, and shared `/data` paths.
+The top-level installer can be downloaded into an empty working directory. It
+clones the public repository and then completes the entire installation without
+requiring a separate `git clone` command:
 
 ```bash
-git pull --ff-only origin main
+curl -fsSL \
+  https://raw.githubusercontent.com/MuhammadMuneeb007/GWAS2Mechanism/main/Install.sh \
+  -o Install.sh
 bash Install.sh
+cd GWAS2Mechanism
 source scripts/activate.sh
 ```
+
+The installer intentionally avoids `$HOME/.cache`, named Conda environments,
+and shared `/data` paths.
 
 `Install.sh` installs every environment, downloads resources in four labelled
 stages, runs the test suite, and creates a synthetic report. The equivalent

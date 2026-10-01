@@ -1,11 +1,45 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Complete, standalone Linux/HPC installer. This file deliberately contains
-# every command it executes; it does not delegate installation to another
-# project script.
+# Complete, standalone Linux/HPC bootstrap and installer.
+#
+# When downloaded into an empty directory, this file first clones the public
+# GitHub repository into ./GWAS2Mechanism and then continues with the copy of
+# itself inside that checkout. When run inside a checkout, it proceeds directly
+# to installation. It never deletes or overwrites a non-Git directory.
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPOSITORY_URL="https://github.com/MuhammadMuneeb007/GWAS2Mechanism.git"
+
+if [[ ! -f "$SCRIPT_DIR/pyproject.toml" || ! -d "$SCRIPT_DIR/src/gwas2mechanism" ]]; then
+  if ! command -v git >/dev/null 2>&1; then
+    echo "ERROR: git is required to download GWAS2Mechanism." >&2
+    exit 2
+  fi
+
+  INSTALL_PARENT="$PWD"
+  CHECKOUT="$INSTALL_PARENT/GWAS2Mechanism"
+
+  echo "GWAS2Mechanism bootstrap installer"
+  echo "Repository: $REPOSITORY_URL"
+  echo "Destination: $CHECKOUT"
+
+  if [[ -d "$CHECKOUT/.git" ]]; then
+    echo "An existing Git checkout was found; updating it safely."
+    git -C "$CHECKOUT" pull --ff-only origin main
+  elif [[ -e "$CHECKOUT" ]]; then
+    echo "ERROR: $CHECKOUT exists but is not a Git checkout." >&2
+    echo "Move it aside or run this installer from another empty directory." >&2
+    exit 2
+  else
+    git clone --branch main --single-branch "$REPOSITORY_URL" "$CHECKOUT"
+  fi
+
+  echo "Repository downloaded. Continuing with $CHECKOUT/Install.sh"
+  exec bash "$CHECKOUT/Install.sh"
+fi
+
+ROOT_DIR="$SCRIPT_DIR"
 LOCAL_ROOT="$ROOT_DIR/.gwas2m"
 ENV_ROOT="$LOCAL_ROOT/envs"
 CORE_ENV="$ENV_ROOT/gwas2mechanism"

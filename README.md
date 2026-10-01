@@ -35,14 +35,19 @@ Mamba is the supported solver. Installation is self-contained under the
 repository: environments and the package cache are stored in `.gwas2m/`,
 scientific resources in `.gwas2m/resources/`, and results in `runs/`.
 
-For a complete one-command installation—including every isolated environment,
-all scientific resources, validation tests, and a synthetic example—run:
+For a complete bootstrap—including cloning the repository, every isolated
+environment, all scientific resources, validation tests, and a synthetic
+example—download only the installer into an empty working directory and run it:
 
 ```bash
-git clone https://github.com/MuhammadMuneeb007/GWAS2Mechanism.git
-cd GWAS2Mechanism
+curl -fsSL \
+  https://raw.githubusercontent.com/MuhammadMuneeb007/GWAS2Mechanism/main/Install.sh \
+  -o Install.sh
 bash Install.sh
 ```
+
+The installer clones the package into `./GWAS2Mechanism` and continues there
+automatically. It may also be run directly from an existing checkout.
 
 The resource phase is restartable but is not a quick package install: the
 population reference panels, GTEx data, and VEP cache can require hours and
