@@ -13,8 +13,8 @@ export GWAS2M_ENV_ROOT="$LOCAL_ROOT/envs"
 export GWAS2M_CACHE="$LOCAL_ROOT/resources"
 
 if [[ ! -d "$CORE_ENV/conda-meta" ]]; then
-  echo "Local environment not found. Run: bash scripts/install.sh --full" >&2
+  echo "Local environment not found. Run: bash Install.sh" >&2
   exit 2
 fi
 
-mamba run --prefix "$CORE_ENV" gwas2m setup --all --populations EUR --populations AFR --populations EAS --populations SAS --populations AMR "$@"
+mamba run --prefix "$CORE_ENV" gwas2m setup --all --executor local --populations EUR --populations AFR --populations EAS --populations SAS --populations AMR "$@"

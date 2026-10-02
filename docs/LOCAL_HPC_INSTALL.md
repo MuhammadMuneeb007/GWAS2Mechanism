@@ -1,55 +1,52 @@
-# Project-local HPC installation
+# Project-local Linux/HPC installation
 
-The top-level installer can be downloaded into an empty working directory. It
-clones the public repository and then completes the entire installation without
-requiring a separate `git clone` command:
+Run these commands in the directory where `GWAS2Mechanism/` should be created:
 
 ```bash
-curl -fsSL \
-  https://raw.githubusercontent.com/MuhammadMuneeb007/GWAS2Mechanism/main/Install.sh \
-  -o Install.sh
-bash Install.sh
+git clone https://github.com/MuhammadMuneeb007/GWAS2Mechanism.git
 cd GWAS2Mechanism
+bash Install.sh
 source scripts/activate.sh
+gwas2m doctor
+gwas2m setup --status
 ```
 
-The installer intentionally avoids `$HOME/.cache`, named Conda environments,
-and shared `/data` paths.
-
-`Install.sh` installs every environment, downloads resources in four labelled
-stages, runs the test suite, and creates a synthetic report. The equivalent
-lower-level command is `bash scripts/install.sh --full --example`.
-
-The complete local layout is:
+The default install creates software only. It does not download the large
+scientific datasets. Everything stays in the current checkout:
 
 ```text
 GWAS2Mechanism/
 ├── .gwas2m/
 │   ├── envs/
-│   │   ├── gwas2mechanism/
-│   │   ├── gwas2mechanism-vep/
-│   │   ├── gwas2mechanism-spliceai/
-│   │   ├── gwas2mechanism-pangolin/
-│   │   └── gwas2mechanism-r-finemap/
 │   ├── pkgs/
-│   └── resources/
+│   ├── resources/
+│   ├── setup_jobs/
+│   └── setup_logs/
 └── runs/
 ```
 
-Do not pass a site-wide path such as
-`--set run_root=/data/gwas2mechanism/runs` unless that exact directory is
-writable. The default `runs` directory is already inside the checkout.
-
-The installation and downloads are restartable. If a network transfer or
-login session stops, rerun:
+For a workstation or an interactive allocation:
 
 ```bash
-bash Install.sh
+gwas2m setup --all --executor local
 ```
 
-For later shells, reactivate the project-local paths with:
+For SLURM:
 
 ```bash
-cd /path/to/GWAS2Mechanism
-source scripts/activate.sh
+gwas2m setup --all --executor slurm --partition ascher
 ```
+
+The partition is an example supplied explicitly by the user. Generate scripts
+without submitting them with `gwas2m setup --generate-slurm`.
+
+To prepare only one ancestry:
+
+```bash
+gwas2m setup --reference --populations EUR --executor slurm
+```
+
+The same commands are safe to rerun after interruption. Completed downloads,
+chromosome conversions, and population subsets are validated and skipped.
+Use `GWAS2M_CACHE=/writable/shared/path` before activation only when a shared
+cache is intentional; otherwise resources stay in `.gwas2m/resources/`.

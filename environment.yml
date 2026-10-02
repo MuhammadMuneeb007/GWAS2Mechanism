@@ -49,6 +49,7 @@ dependencies:
   - r-data.table=1.17
   - pip
   - pip:
+      - numpy>=2.0,<2.3
       - gwaslab==4.2.3
       - snakemake==9.27.0
       - snakemake-executor-plugin-slurm==2.8.0

@@ -6,7 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 from rich.console import Console
@@ -154,14 +154,60 @@ def setup(
     populations: Annotated[list[str] | None, typer.Option("--populations")] = None,
     config: Annotated[list[Path] | None, typer.Option("--config", exists=True)] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print the resource plan without downloading.")] = False,
+    status: Annotated[bool, typer.Option("--status", help="Inspect resources without downloading anything.")] = False,
+    executor: Annotated[Literal["local", "slurm"], typer.Option("--executor")] = "local",
+    partition: Annotated[str | None, typer.Option("--partition", help="SLURM partition; never assumed by default.")] = None,
+    generate_slurm: Annotated[bool, typer.Option("--generate-slurm", help="Generate SLURM scripts without submitting them.")] = False,
 ) -> None:
     """Download, validate and cache versioned scientific resources."""
+    from gwas2mechanism.resource_status import inspect_resources
     from gwas2mechanism.setup_resources import setup_resources
+    from gwas2mechanism.slurm_setup import generate_slurm_jobs, submit_slurm_jobs
 
     cfg = _config(config, None)
-    chosen = all_resources or full
-    plan = setup_resources(cfg, reference=reference or chosen, gtex=gtex or chosen, vep=vep or chosen, splice=splice or chosen, populations=populations or cfg.populations.allowed, full=full, dry_run=dry_run)
+    if status:
+        report = inspect_resources(cfg)
+        console.print(f"Resource cache: [bold]{report['resource_cache']}[/bold]")
+        table = Table("Resource", "Status", "Detail")
+        for row in report["rows"]:
+            table.add_row(row.resource, row.status, row.detail)
+        console.print(table)
+        console.print(f"Total: {report['total']}  Complete: {report['complete']}  Partial: {report['partial']}  Missing: {report['missing']}  Percentage complete: {report['percentage_complete']}%")
+        return
+    explicit_stage = reference or gtex or vep or splice
+    chosen = all_resources or full or (generate_slurm and not explicit_stage)
+    selected = {"reference": reference or chosen, "gtex": gtex or chosen, "vep": vep or chosen, "splice": splice or chosen}
+    if not any(selected.values()):
+        raise typer.BadParameter("Choose --reference, --gtex, --vep, --splice, --all, --status, or --generate-slurm")
+    selected_populations = [value.upper() for value in (populations or cfg.populations.allowed)]
+    if executor == "slurm" or generate_slurm:
+        plan = generate_slurm_jobs(cfg, populations=selected_populations, partition=partition, **selected)
+        plan["executor"] = "slurm"
+        plan["submitted"] = False
+        if executor == "slurm" and not generate_slurm and not dry_run:
+            plan["submission_output"] = submit_slurm_jobs(plan)
+            plan["submitted"] = True
+    else:
+        plan = setup_resources(cfg, populations=selected_populations, full=full, dry_run=dry_run, **selected)
     console.print(json.dumps(plan, indent=2))
+
+
+@app.command("setup-task", hidden=True)
+def setup_task(
+    task: Annotated[str, typer.Option("--task")],
+    chromosome: Annotated[str | None, typer.Option("--chromosome")] = None,
+    population: Annotated[str | None, typer.Option("--population")] = None,
+    populations: Annotated[list[str] | None, typer.Option("--populations")] = None,
+    reference: Annotated[bool, typer.Option("--reference")] = False,
+    gtex: Annotated[bool, typer.Option("--gtex")] = False,
+    vep: Annotated[bool, typer.Option("--vep")] = False,
+    splice: Annotated[bool, typer.Option("--splice")] = False,
+    config: Annotated[list[Path] | None, typer.Option("--config", exists=True)] = None,
+) -> None:
+    from gwas2mechanism.setup_resources import run_setup_task
+
+    cfg = _config(config, None)
+    console.print(json.dumps(run_setup_task(cfg, task, chromosome=chromosome, population=population, populations=populations, reference=reference, gtex=gtex, vep=vep, splice=splice), indent=2))
 
 
 if __name__ == "__main__":

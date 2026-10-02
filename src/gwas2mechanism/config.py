@@ -216,12 +216,36 @@ class LncrnaConfig(_Strict):
     pip_thresholds: list[float] = Field(default_factory=lambda: [0.01, 0.1, 0.5])
 
 
+class DownloadsConfig(_Strict):
+    concurrent_files: int = Field(default=4, ge=1, le=32)
+    connections_per_file: int = Field(default=4, ge=1, le=16)
+    min_split_size: str = "16M"
+    retry_attempts: int = Field(default=8, ge=1, le=20)
+    retry_initial_seconds: float = Field(default=2, ge=0)
+    retry_max_seconds: float = Field(default=60, ge=0)
+    aria2_max_tries: int = Field(default=5, ge=1, le=20)
+    aria2_retry_wait_seconds: int = Field(default=5, ge=0)
+    timeout_seconds: float = Field(default=300, gt=0)
+    connect_timeout_seconds: float = Field(default=30, gt=0)
+
+
+class SetupPerformanceConfig(_Strict):
+    chromosome_workers: int = Field(default=4, ge=1, le=22)
+    population_workers: int = Field(default=8, ge=1, le=110)
+    gtex_workers: int = Field(default=4, ge=1, le=32)
+    slurm_download_array_limit: int = Field(default=6, ge=1, le=22)
+    slurm_convert_array_limit: int = Field(default=8, ge=1, le=22)
+    slurm_prepare_array_limit: int = Field(default=12, ge=1, le=110)
+
+
 class PerformanceConfig(_Strict):
     parquet_compression: str = "zstd"
     parquet_compression_level: int = 3
     threads: int | Literal["auto"] = "auto"
     memory_safe: bool = True
     blas_threads_per_job: int = 1
+    downloads: DownloadsConfig = Field(default_factory=DownloadsConfig)
+    setup: SetupPerformanceConfig = Field(default_factory=SetupPerformanceConfig)
 
 
 class ReportConfig(_Strict):

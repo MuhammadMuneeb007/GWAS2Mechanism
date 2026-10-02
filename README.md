@@ -1,81 +1,83 @@
 # GWAS2Mechanism
 
-GWAS2Mechanism is a phenotype-agnostic, population-aware framework that automatically discovers GWAS summary statistics and integrates ancestry-specific and cross-ancestry fine-mapping with functional annotation, GTEx molecular-QTL evidence and sequence-level splicing prediction to prioritize candidate variant → gene → tissue → mechanism relationships.
+GWAS2Mechanism is a phenotype-agnostic, population-aware framework that
+discovers GWAS summary statistics and integrates ancestry-specific and
+cross-ancestry fine-mapping with VEP annotation, Adult GTEx molecular-QTL
+evidence, SpliceAI, and Pangolin.
 
-The command-line tool is `gwas2m`. It uses Polars/Parquet for genome-scale tables, PLINK2 for population-matched LD, SuSiE-RSS for population-specific fine-mapping, MultiSuSiE or SuSiEx for cross-population fine-mapping, Ensembl VEP, compact Adult GTEx SuSiE eQTL/sQTL resources, SpliceAI, Pangolin, and a restartable Snakemake DAG.
-
-```mermaid
-flowchart TD
-    P[Phenotype + ontology resolution] --> D[GWAS discovery and transparent ranking]
-    D --> H[Download, GRCh38 harmonisation and QC]
-    H --> S{Actual source dataset}
-    S -->|ancestry-stratified| A[EUR / AFR / EAS / SAS / AMR analyses]
-    S -->|published multi-ancestry| CP[COMBINED_PUBLISHED]
-    A --> M[COMBINED_META with heterogeneity]
-    A --> L[Population-specific LD clumping]
-    L --> F[Population-specific SuSiE-RSS]
-    F --> X[MultiSuSiE / SuSiEx with separate LD matrices]
-    CP --> U[Union of significant loci]
-    M --> U
-    F --> U
-    X --> U
-    U --> V[VEP prioritized variants]
-    U --> Q[Adult GTEx SuSiE: all tissues, eQTL + sQTL]
-    U --> SP[SpliceAI and Pangolin]
-    V --> E[Long-format evidence]
-    Q --> C[PIP-based colocalisation screen]
-    SP --> E
-    C --> E
-    E --> R[Population-aware report]
-```
+The `gwas2m` CLI uses Polars/Parquet, PLINK2, SuSiE-RSS, MultiSuSiE or SuSiEx,
+compact GTEx SuSiE eQTL/sQTL resources, and a restartable Snakemake workflow.
 
 ## Installation
 
-Mamba is the supported solver. Installation is self-contained under the
-repository: environments and the package cache are stored in `.gwas2m/`,
-scientific resources in `.gwas2m/resources/`, and results in `runs/`.
+Mamba is the supported solver. Environments, package cache, and scientific
+resources remain inside the checkout under `.gwas2m/`.
 
-For a complete bootstrap—including cloning the repository, every isolated
-environment, all scientific resources, validation tests, and a synthetic
-example—download only the installer into an empty working directory and run it:
+From an empty Linux/HPC directory:
 
 ```bash
 curl -fsSL \
   https://raw.githubusercontent.com/MuhammadMuneeb007/GWAS2Mechanism/main/Install.sh \
   -o Install.sh
 bash Install.sh
-```
-
-The installer clones the package into `./GWAS2Mechanism` and continues there
-automatically. It may also be run directly from an existing checkout.
-
-The resource phase is restartable but is not a quick package install: the
-population reference panels, GTEx data, and VEP cache can require hours and
-substantial disk space. Rerunning `bash Install.sh` reuses completed work.
-
-For a quick core-only installation:
-
-```bash
-git clone https://github.com/MuhammadMuneeb007/GWAS2Mechanism.git
 cd GWAS2Mechanism
-bash scripts/install.sh
 source scripts/activate.sh
-gwas2m doctor
 ```
 
-The lower-level equivalent for isolated VEP/SpliceAI/Pangolin/R environments
-and all scientific resources is:
+`bash Install.sh` clones the public repository when necessary, creates the
+project-local software environments, installs the package, and runs software
+diagnostics. It deliberately does not start the large scientific downloads.
+Use `bash Install.sh --full` only when software plus full local resources are
+wanted in one command.
+
+## Resource setup
+
+Read-only status:
 
 ```bash
-bash scripts/install.sh --full --example
-# The same checkout can be activated again in later shells:
-source scripts/activate.sh
+gwas2m setup --status
 ```
 
-Resources are cached under `./.gwas2m/resources` by default, validated,
-recorded in `manifest.tsv`, and reused. `GWAS2M_CACHE` can explicitly override
-that location. Preview the large download plan with
-`gwas2m setup --all --dry-run`.
+Bounded local setup:
+
+```bash
+gwas2m setup --reference --populations EUR --executor local
+gwas2m setup --all --executor local
+```
+
+SLURM setup (generates and submits the dependency DAG):
+
+```bash
+gwas2m setup --all --executor slurm --partition ascher
+```
+
+Generate the scripts without submitting:
+
+```bash
+gwas2m setup --generate-slurm
+```
+
+Jobs are written to `.gwas2m/setup_jobs/` and stdout/stderr to
+`.gwas2m/setup_logs/`. No partition is hard-coded. GTEx and VEP are independent
+of the reference pipeline. 1000 Genomes download, ALL-sample conversion, and
+population subsetting use bounded chromosome arrays and `afterok` dependencies.
+
+Resources are cached under `.gwas2m/resources/` unless `GWAS2M_CACHE` is set.
+Major storage categories are compressed 1000 Genomes VCFs, one-time ALL-sample
+PGEN intermediates, separate ancestry PGENs, GENCODE, compact GTEx SuSiE data,
+and VEP. Sizes vary by release and requested populations.
+
+Downloads retain `.part` data for resume, atomically rename completed files,
+reuse `.verified.json` stamps, and use writer locks. Derived chromosome markers
+validate PGEN/PVAR/PSAM/Parquet together. Rerunning local or SLURM setup skips
+valid work and resumes partial work.
+
+Raw VCFs are converted once per chromosome to an ALL-sample PGEN intermediate.
+EUR, AFR, EAS, SAS, and AMR are then independently subset from that binary
+intermediate. ALL is never used as pooled cross-ancestry LD.
+
+See [resource setup documentation](docs/RESOURCE_SETUP.md) and the
+[local/HPC installation guide](docs/LOCAL_HPC_INSTALL.md).
 
 ## Quick start
 
@@ -86,7 +88,7 @@ gwas2m resume --run runs/migraine/latest
 gwas2m report --run runs/migraine/latest
 ```
 
-A download-free complete smoke test is available for installation validation:
+A download-free validation run is available:
 
 ```bash
 gwas2m run --phenotype "synthetic phenotype" --synthetic
@@ -94,37 +96,37 @@ gwas2m run --phenotype "synthetic phenotype" --synthetic
 
 ## Population strategy
 
-The framework preserves reported ancestry text and maps metadata to `EUR`, `AFR`, `EAS`, `SAS`, or `AMR` only when supported. Approximate mappings are flagged; unresolved cohorts remain `UNKNOWN` or `UNMAPPED`. An aggregated multi-ancestry file is never split into artificial ancestry datasets. It is analyzed as `COMBINED_PUBLISHED`. `COMBINED_META` is created only from compatible, independently reported ancestry-stratified effects after allele harmonisation. Cross-population fine-mapping supplies one summary-statistic vector, sample size, and LD matrix per ancestry; it never builds a naive pooled LD matrix.
+The framework maps supported metadata to EUR, AFR, EAS, SAS, or AMR while
+retaining reported ancestry and flagging approximate mappings. An aggregated
+multi-ancestry file is never split into artificial ancestry datasets; it is
+analysed as `COMBINED_PUBLISHED`. `COMBINED_META` is created only from compatible
+ancestry-stratified effects. Cross-population fine-mapping supplies a separate
+summary-statistic vector, sample size, and LD matrix for every ancestry.
 
-## Adult GTEx all-tissue strategy
+## Adult GTEx strategy
 
-`qtl.tissues: all` is the default. Every tissue present in the selected stable Adult GTEx compact SuSiE fine-mapping release is eligible for eQTL and sQTL matching. Tissues may be ranked in the report but are not pre-filtered by phenotype. Fast mode avoids unexpectedly downloading dense all-association resources.
+`qtl.tissues: all` is the default. Every tissue in the selected stable Adult
+GTEx compact SuSiE release is eligible for eQTL and sQTL matching. Tissues may
+be ranked in reports but are not pre-filtered by phenotype.
 
-## Fast and full modes
+## Outputs and interpretation
 
-Fast mode selects the strongest usable study per population, fine-maps genome-wide-significant loci, annotates the prioritized variant union once, scans compact all-tissue GTEx SuSiE resources, predicts splicing once per variant, and performs a fine-mapping-based colocalisation screen. Full mode may retain multiple suitable studies, extra QTL resources, MR-MEGA, and formal coloc for top pairs when dense regional inputs are locally available and below the configured download limit.
+Each run is isolated under `runs/<phenotype>/<run_id>/` with its resolved
+configuration, provenance manifest, discovery tables, population-specific
+GWAS/loci/fine-mapping directories, multi-ancestry results, annotations, QTL,
+splicing, colocalisation, evidence, and reports.
 
-## Output structure
+Summary statistics cannot be retrospectively split by ancestry. 1000 Genomes
+may not perfectly match a study cohort. Missing evidence is not biological
+absence. VEP, SpliceAI, and Pangolin provide predictions rather than
+experimental validation. See [scientific limitations](docs/SCIENTIFIC_LIMITATIONS.md).
 
-Each run is isolated under `runs/<phenotype>/<run_id>/` with `manifest.yaml`, resolved configuration, discovery tables, population-specific GWAS/loci/fine-mapping directories, multi-ancestry results, annotation, `qtl/all_tissues`, splicing, colocalisation, evidence, and HTML/Markdown/TSV reports. `runs/<phenotype>/latest` points to the newest run when the platform supports symlinks (otherwise it is a small text pointer).
-
-## Scientific caveats
-
-1. Summary statistics cannot be retrospectively split by ancestry.
-2. LD must match ancestry as closely as possible, and 1000 Genomes may not perfectly represent a cohort.
-3. Smaller studies—often non-European—have lower power; missing evidence is not biological absence.
-4. PIP-product shared-variant screening is not formal `coloc.susie`.
-5. VEP annotations and SpliceAI/Pangolin scores are predictions, not experimental validation.
-6. Gene-body overlap does not establish mediation, and tissue QTL evidence does not prove a causal tissue.
-7. Effect heterogeneity is retained and must be interpreted rather than hidden by meta-analysis.
-
-SpliceAI source/model licensing restricts model use to qualifying non-commercial purposes unless a commercial license is obtained; review the upstream license before running that optional stage.
-
-Use terms such as “candidate causal variant,” “colocalisation evidence,” “predicted splice effect,” and “candidate regulatory mechanism.”
-
-See [docs/SCIENTIFIC_LIMITATIONS.md](docs/SCIENTIFIC_LIMITATIONS.md) for the
-full interpretation guide.
+SpliceAI source/model licensing restricts model use to qualifying
+non-commercial purposes unless a commercial license is obtained; review the
+upstream license before using that optional stage.
 
 ## Development and citation
 
-Run `ruff check .` and `pytest -q`; see [CONTRIBUTING.md](CONTRIBUTING.md). Cite this software using [CITATION.cff](CITATION.cff), plus the GWAS, reference panel, GTEx, VEP, SuSiE/MultiSuSiE, SpliceAI, and Pangolin sources recorded in each run manifest.
+Run `ruff check .` and `pytest -q`; see [CONTRIBUTING.md](CONTRIBUTING.md).
+Cite this software using [CITATION.cff](CITATION.cff), plus the upstream GWAS,
+reference, GTEx, VEP, fine-mapping, and splicing sources recorded in manifests.

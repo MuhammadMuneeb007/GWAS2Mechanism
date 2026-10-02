@@ -12,7 +12,8 @@ usage() {
   cat <<'EOF'
 Usage: bash scripts/install.sh [--full] [--example]
 
-  --full     Install every environment and download/prepare all resources.
+  Default    Install every software environment; do not download large resources.
+  --full     Also download/prepare all resources with the bounded local executor.
   --example  Run tests and a synthetic end-to-end example after installation.
 EOF
 }
@@ -66,38 +67,18 @@ install_or_update() {
 }
 
 install_or_update "$CORE_ENV" environment.yml
+install_or_update "$ENV_ROOT/gwas2mechanism-spliceai" workflow/envs/spliceai.yml
+install_or_update "$ENV_ROOT/gwas2mechanism-pangolin" workflow/envs/pangolin.yml
+install_or_update "$ENV_ROOT/gwas2mechanism-vep" workflow/envs/vep.yml
+install_or_update "$ENV_ROOT/gwas2mechanism-r-finemap" workflow/envs/r-finemap.yml
+
 if [[ "$FULL" -eq 1 ]]; then
-  install_or_update "$ENV_ROOT/gwas2mechanism-spliceai" workflow/envs/spliceai.yml
-  install_or_update "$ENV_ROOT/gwas2mechanism-pangolin" workflow/envs/pangolin.yml
-  install_or_update "$ENV_ROOT/gwas2mechanism-vep" workflow/envs/vep.yml
-  install_or_update "$ENV_ROOT/gwas2mechanism-r-finemap" workflow/envs/r-finemap.yml
-
   echo
   echo "======================================================================"
-  echo "Resource stage 1/4: GRCh38 and population-specific 1000 Genomes panels"
-  echo "This is the largest stage and can take hours on an HPC filesystem."
+  echo "Full bounded local resource setup"
+  echo "This can take hours and substantial disk space on an HPC filesystem."
   echo "======================================================================"
-  mamba run --prefix "$CORE_ENV" gwas2m setup --reference \
-    --populations EUR --populations AFR --populations EAS \
-    --populations SAS --populations AMR
-
-  echo
-  echo "======================================================================"
-  echo "Resource stage 2/4: Adult GTEx all-tissue SuSiE eQTL/sQTL resources"
-  echo "======================================================================"
-  mamba run --prefix "$CORE_ENV" gwas2m setup --gtex
-
-  echo
-  echo "======================================================================"
-  echo "Resource stage 3/4: Ensembl VEP cache"
-  echo "======================================================================"
-  mamba run --prefix "$CORE_ENV" gwas2m setup --vep
-
-  echo
-  echo "======================================================================"
-  echo "Resource stage 4/4: SpliceAI/Pangolin genome annotations"
-  echo "======================================================================"
-  mamba run --prefix "$CORE_ENV" gwas2m setup --splice
+  mamba run --prefix "$CORE_ENV" gwas2m setup --all --executor local
 fi
 mamba run --prefix "$CORE_ENV" gwas2m doctor
 
@@ -127,3 +108,6 @@ echo "  package cache:    $LOCAL_ROOT/pkgs"
 echo "  resources:        $GWAS2M_CACHE"
 echo "  runs:             $ROOT_DIR/runs"
 echo "Run: source scripts/activate.sh"
+echo "Inspect resources: gwas2m setup --status"
+echo "Local resource setup: gwas2m setup --all --executor local"
+echo "SLURM resource setup: gwas2m setup --all --executor slurm --partition PARTITION"
